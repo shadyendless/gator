@@ -11,6 +11,7 @@ import (
 	"github.com/shadyendless/gator/internal/commands"
 	"github.com/shadyendless/gator/internal/database"
 	"github.com/shadyendless/gator/internal/state"
+	"github.com/shadyendless/gator/internal/xml"
 )
 
 func main() {
@@ -25,6 +26,7 @@ func main() {
 	comms.Register("register", handlerRegister)
 	comms.Register("reset", handlerReset)
 	comms.Register("users", handlerUsers)
+	comms.Register("agg", handlerAgg)
 
 	if len(os.Args) < 2 {
 		fmt.Println("[ERROR]: Not enough arguments were passed")
@@ -115,6 +117,22 @@ func handlerUsers(s *state.State, cmd commands.Command) error {
 
 		fmt.Print("\n")
 	}
+
+	return nil
+}
+
+func handlerAgg(s *state.State, cmd commands.Command) error {
+	if len(cmd.Args) == 0 {
+		return fmt.Errorf("url is required")
+	}
+
+	url := cmd.Args[0]
+	feed, err := xml.FetchFeed(context.Background(), url)
+	if err != nil {
+		return fmt.Errorf("could not fetch from \"%s\"", url)
+	}
+
+	fmt.Println(feed)
 
 	return nil
 }
