@@ -16,4 +16,4 @@ LIMIT 1;
 SELECT * FROM users;
 
 -- name: Reset :exec
-TRUNCATE users;
+DELETE FROM users;

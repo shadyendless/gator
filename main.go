@@ -27,6 +27,7 @@ func main() {
 	comms.Register("reset", handlerReset)
 	comms.Register("users", handlerUsers)
 	comms.Register("agg", handlerAgg)
+	comms.Register("addfeed", handlerAddFeed)
 
 	if len(os.Args) < 2 {
 		fmt.Println("[ERROR]: Not enough arguments were passed")
@@ -133,6 +134,36 @@ func handlerAgg(s *state.State, cmd commands.Command) error {
 	}
 
 	fmt.Println(feed)
+
+	return nil
+}
+
+func handlerAddFeed(s *state.State, cmd commands.Command) error {
+	if len(cmd.Args) != 2 {
+		return fmt.Errorf("name and url are required")
+	}
+
+	user, err := s.Db.GetUser(context.Background(), s.Config.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	name := cmd.Args[0]
+	feedURL := cmd.Args[1]
+
+	feed, err := s.Db.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      name,
+		Url:       feedURL,
+		UserID:    user.ID,
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(feed)
 
 	return nil
 }
