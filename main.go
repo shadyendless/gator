@@ -4,37 +4,49 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shadyendless/gator/internal/config"
+	"github.com/shadyendless/gator/internal/commands"
+	"github.com/shadyendless/gator/internal/state"
 )
 
 func main() {
-	fmt.Println("Loading config file...")
-	conf, err := config.Read()
+	s, err := state.New()
 	if err != nil {
-		fmt.Printf("An error occurred: %w\n", err)
+		fmt.Printf("[ERROR]: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Config file loaded.")
-	fmt.Println(conf)
+	coms := commands.New()
+	coms.Register("login", handlerLogin)
 
-	fmt.Println("Updating config file...")
-	err = conf.SetUser("jacob")
-	if err != nil {
-		fmt.Printf("An error occurred: %w\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("Config file updated.")
-
-	fmt.Println("Loading config file...")
-	conf, err = config.Read()
-	if err != nil {
-		fmt.Printf("An error occurred: %w\n", err)
+	if len(os.Args) < 2 {
+		fmt.Println("[ERROR]: Not enough arguments were passed")
 		os.Exit(1)
 	}
 
-	fmt.Println("Config file loaded.")
-	fmt.Println(conf)
+	command := os.Args[1]
+	args := os.Args[2:]
+
+	if err = coms.Run(&s, commands.Command{
+		Name: command,
+		Args: args,
+	}); err != nil {
+		fmt.Printf("[ERROR]: %v\n", err)
+		os.Exit(1)
+	}
 
 	os.Exit(0)
+}
+
+func handlerLogin(s *state.State, cmd commands.Command) error {
+	if len(cmd.Args) == 0 {
+		return fmt.Errorf("username is required")
+	}
+
+	username := cmd.Args[0]
+	if err := s.Config.SetUser(username); err != nil {
+		return err
+	}
+
+	fmt.Printf("The user has been set to: %s\n", username)
+	return nil
 }
