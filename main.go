@@ -28,6 +28,7 @@ func main() {
 	comms.Register("users", handlerUsers)
 	comms.Register("agg", handlerAgg)
 	comms.Register("addfeed", handlerAddFeed)
+	comms.Register("feeds", handlerFeeds)
 
 	if len(os.Args) < 2 {
 		fmt.Println("[ERROR]: Not enough arguments were passed")
@@ -164,6 +165,20 @@ func handlerAddFeed(s *state.State, cmd commands.Command) error {
 	}
 
 	fmt.Print(feed)
+
+	return nil
+}
+
+func handlerFeeds(s *state.State, cmd commands.Command) error {
+	feeds, err := s.Db.GetFeeds(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range feeds {
+		fmt.Printf("- %s (%s)\n", feed.Name, feed.Url)
+		fmt.Printf("    Added by %s\n", feed.CreatedBy.String)
+	}
 
 	return nil
 }
