@@ -20,9 +20,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	coms := commands.New()
-	coms.Register("login", handlerLogin)
-	coms.Register("register", handlerRegister)
+	comms := commands.New()
+	comms.Register("login", handlerLogin)
+	comms.Register("register", handlerRegister)
+	comms.Register("reset", handlerReset)
 
 	if len(os.Args) < 2 {
 		fmt.Println("[ERROR]: Not enough arguments were passed")
@@ -32,7 +33,7 @@ func main() {
 	command := os.Args[1]
 	args := os.Args[2:]
 
-	if err = coms.Run(&s, commands.Command{
+	if err = comms.Run(&s, commands.Command{
 		Name: command,
 		Args: args,
 	}); err != nil {
@@ -84,6 +85,14 @@ func handlerRegister(s *state.State, cmd commands.Command) error {
 		Name: "login",
 		Args: []string{user.Name},
 	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func handlerReset(s *state.State, cmd commands.Command) error {
+	if err := s.Db.Reset(context.Background()); err != nil {
 		return err
 	}
 
