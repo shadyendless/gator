@@ -8,4 +8,4 @@ SELECT
   feeds.*,
   users.name AS created_by
 FROM feeds
-LEFT JOIN users ON feeds.user_id = users.id;
+INNER JOIN users ON feeds.user_id = users.id;

@@ -177,7 +177,7 @@ func handlerFeeds(s *state.State, cmd commands.Command) error {
 
 	for _, feed := range feeds {
 		fmt.Printf("- %s (%s)\n", feed.Name, feed.Url)
-		fmt.Printf("    Added by %s\n", feed.CreatedBy.String)
+		fmt.Printf("    Added by %s\n", feed.CreatedBy)
 	}
 
 	return nil

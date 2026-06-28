@@ -7,7 +7,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,7 +53,7 @@ SELECT
   feeds.id, feeds.created_at, feeds.updated_at, feeds.name, feeds.url, feeds.user_id,
   users.name AS created_by
 FROM feeds
-LEFT JOIN users ON feeds.user_id = users.id
+INNER JOIN users ON feeds.user_id = users.id
 `
 
 type GetFeedsRow struct {
@@ -64,7 +63,7 @@ type GetFeedsRow struct {
 	Name      string
 	Url       string
 	UserID    uuid.UUID
-	CreatedBy sql.NullString
+	CreatedBy string
 }
 
 func (q *Queries) GetFeeds(ctx context.Context) ([]GetFeedsRow, error) {
