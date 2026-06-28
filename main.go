@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/shadyendless/gator/internal/commands"
 	"github.com/shadyendless/gator/internal/database"
+	"github.com/shadyendless/gator/internal/middleware"
 	"github.com/shadyendless/gator/internal/state"
 	"github.com/shadyendless/gator/internal/xml"
 )
@@ -27,8 +28,10 @@ func main() {
 	comms.Register("reset", handlerReset)
 	comms.Register("users", handlerUsers)
 	comms.Register("agg", handlerAgg)
-	comms.Register("addfeed", handlerAddFeed)
+	comms.Register("addfeed", middleware.LoggedIn(handlerAddFeed, &s))
 	comms.Register("feeds", handlerFeeds)
+	comms.Register("follow", middleware.LoggedIn(handlerFollow, &s))
+	comms.Register("following", middleware.LoggedIn(handlerFollowing, &s))
 
 	if len(os.Args) < 2 {
 		fmt.Println("[ERROR]: Not enough arguments were passed")
@@ -139,14 +142,9 @@ func handlerAgg(s *state.State, cmd commands.Command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state.State, cmd commands.Command) error {
+func handlerAddFeed(s *state.State, cmd commands.Command, user database.User) error {
 	if len(cmd.Args) != 2 {
 		return fmt.Errorf("name and url are required")
-	}
-
-	user, err := s.Db.GetUser(context.Background(), s.Config.CurrentUserName)
-	if err != nil {
-		return err
 	}
 
 	name := cmd.Args[0]
@@ -178,6 +176,46 @@ func handlerFeeds(s *state.State, cmd commands.Command) error {
 	for _, feed := range feeds {
 		fmt.Printf("- %s (%s)\n", feed.Name, feed.Url)
 		fmt.Printf("    Added by %s\n", feed.CreatedBy)
+	}
+
+	return nil
+}
+
+func handlerFollow(s *state.State, cmd commands.Command, user database.User) error {
+	if len(cmd.Args) == 0 {
+		return fmt.Errorf("you must provide a url")
+	}
+
+	feedUrl := cmd.Args[0]
+	feed, err := s.Db.GetFeedByUrl(context.Background(), feedUrl)
+	if err != nil {
+		return err
+	}
+
+	feedFollow, err := s.Db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%s followed %s\n", feedFollow.UserName, feedFollow.FeedName)
+
+	return nil
+}
+
+func handlerFollowing(s *state.State, cmd commands.Command, user database.User) error {
+	feeds, err := s.Db.GetFeedFollows(context.Background(), user.ID)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%s is following:\n", user.Name)
+	for _, feed := range feeds {
+		fmt.Printf(" - %s\n", feed)
 	}
 
 	return nil

@@ -13,9 +13,15 @@ import (
 )
 
 const createFeed = `-- name: CreateFeed :one
-INSERT INTO feeds (id, created_at, updated_at, name, url, user_id)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, created_at, updated_at, name, url, user_id
+WITH feed AS (
+  INSERT INTO feeds (id, created_at, updated_at, name, url, user_id)
+  VALUES ($1, $2, $3, $4, $5, $6)
+  RETURNING id, created_at, updated_at, name, url, user_id
+), feed_follow AS (
+  INSERT INTO feed_follows (user_id, feed_id, created_at, updated_at)
+  SELECT feed.user_id, feed.id, feed.created_at, feed.updated_at FROM feed
+  RETURNING user_id, feed_id, created_at, updated_at
+) SELECT feed.id, feed.created_at, feed.updated_at, feed.name, feed.url, feed.user_id FROM feed
 `
 
 type CreateFeedParams struct {
@@ -27,7 +33,16 @@ type CreateFeedParams struct {
 	UserID    uuid.UUID
 }
 
-func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, error) {
+type CreateFeedRow struct {
+	ID        uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Name      string
+	Url       string
+	UserID    uuid.UUID
+}
+
+func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (CreateFeedRow, error) {
 	row := q.db.QueryRowContext(ctx, createFeed,
 		arg.ID,
 		arg.CreatedAt,
@@ -36,6 +51,24 @@ func (q *Queries) CreateFeed(ctx context.Context, arg CreateFeedParams) (Feed, e
 		arg.Url,
 		arg.UserID,
 	)
+	var i CreateFeedRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Name,
+		&i.Url,
+		&i.UserID,
+	)
+	return i, err
+}
+
+const getFeedByUrl = `-- name: GetFeedByUrl :one
+SELECT id, created_at, updated_at, name, url, user_id FROM feeds WHERE url = $1
+`
+
+func (q *Queries) GetFeedByUrl(ctx context.Context, url string) (Feed, error) {
+	row := q.db.QueryRowContext(ctx, getFeedByUrl, url)
 	var i Feed
 	err := row.Scan(
 		&i.ID,
