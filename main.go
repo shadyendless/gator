@@ -129,18 +129,20 @@ func handlerUsers(s *state.State, cmd commands.Command) error {
 
 func handlerAgg(s *state.State, cmd commands.Command) error {
 	if len(cmd.Args) == 0 {
-		return fmt.Errorf("url is required")
+		return fmt.Errorf("duration is required")
 	}
 
-	url := cmd.Args[0]
-	feed, err := xml.FetchFeed(context.Background(), url)
+	timeBetweenReqs, err := time.ParseDuration(cmd.Args[0])
 	if err != nil {
-		return fmt.Errorf("could not fetch from \"%s\"", url)
+		return err
 	}
 
-	fmt.Println(feed)
+	fmt.Printf("Collecting feeds every %v\n", timeBetweenReqs)
 
-	return nil
+	ticker := time.NewTicker(timeBetweenReqs)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func handlerAddFeed(s *state.State, cmd commands.Command, user database.User) error {
@@ -237,4 +239,29 @@ func handlerUnfollow(s *state.State, cmd commands.Command, user database.User) e
 		UserID: user.ID,
 		FeedID: feed.ID,
 	})
+}
+
+func scrapeFeeds(s *state.State) error {
+	dbFeed, err := s.Db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Fetching feed \"%s\"...\n", dbFeed.Name)
+	xmlFeed, err := xml.FetchFeed(context.Background(), dbFeed.Url)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Fetched %d item(s) from \"%s\"\n", len(xmlFeed.Channel.Item), dbFeed.Name)
+
+	err = s.Db.MarkFeedFetched(context.Background(), dbFeed.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range xmlFeed.Channel.Item {
+		fmt.Printf(" - %s\n", item.Title)
+	}
+
+	return nil
 }
