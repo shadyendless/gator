@@ -32,6 +32,7 @@ func main() {
 	comms.Register("feeds", handlerFeeds)
 	comms.Register("follow", middleware.LoggedIn(handlerFollow, &s))
 	comms.Register("following", middleware.LoggedIn(handlerFollowing, &s))
+	comms.Register("unfollow", middleware.LoggedIn(handlerUnfollow, &s))
 
 	if len(os.Args) < 2 {
 		fmt.Println("[ERROR]: Not enough arguments were passed")
@@ -219,4 +220,21 @@ func handlerFollowing(s *state.State, cmd commands.Command, user database.User) 
 	}
 
 	return nil
+}
+
+func handlerUnfollow(s *state.State, cmd commands.Command, user database.User) error {
+	if len(cmd.Args) == 0 {
+		return fmt.Errorf("you must provide a url")
+	}
+
+	feedUrl := cmd.Args[0]
+	feed, err := s.Db.GetFeedByUrl(context.Background(), feedUrl)
+	if err != nil {
+		return err
+	}
+
+	return s.Db.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{
+		UserID: user.ID,
+		FeedID: feed.ID,
+	})
 }
