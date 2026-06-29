@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,6 +35,7 @@ func main() {
 	comms.Register("follow", middleware.LoggedIn(handlerFollow, &s))
 	comms.Register("following", middleware.LoggedIn(handlerFollowing, &s))
 	comms.Register("unfollow", middleware.LoggedIn(handlerUnfollow, &s))
+	comms.Register("browse", middleware.LoggedIn(handlerBrowse, &s))
 
 	if len(os.Args) < 2 {
 		fmt.Println("[ERROR]: Not enough arguments were passed")
@@ -241,6 +244,38 @@ func handlerUnfollow(s *state.State, cmd commands.Command, user database.User) e
 	})
 }
 
+func handlerBrowse(s *state.State, cmd commands.Command, user database.User) error {
+	limit := int32(2)
+
+	if len(cmd.Args) > 0 {
+		parseResult, err := strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return err
+		}
+
+		limit = int32(parseResult)
+	}
+
+	posts, err := s.Db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  limit,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		fmt.Printf(`%s
+Published on %s
+%s
+Read at: %s
+---------
+`, post.Title, post.PublishedAt.Format(time.RFC1123), post.Description.String, post.Url)
+	}
+
+	return nil
+}
+
 func scrapeFeeds(s *state.State) error {
 	dbFeed, err := s.Db.GetNextFeedToFetch(context.Background())
 	if err != nil {
@@ -260,7 +295,24 @@ func scrapeFeeds(s *state.State) error {
 	}
 
 	for _, item := range xmlFeed.Channel.Item {
-		fmt.Printf(" - %s\n", item.Title)
+		pubTime, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			fmt.Printf("Could not parse the PubDate for \"%s\"\n  Received: %s\n", item.Title, item.PubDate)
+			continue
+		}
+
+		_, err = s.Db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:        uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			Title:     item.Title,
+			Url:       item.Link,
+			Description: sql.NullString{
+				String: item.Description,
+			},
+			PublishedAt: pubTime,
+			FeedID:      dbFeed.ID,
+		})
 	}
 
 	return nil
